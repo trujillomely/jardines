@@ -94,24 +94,24 @@ test("administrative callable API commits payments atomically", {
   assert.equal(duplicateAssignment.status, 400);
   assert.equal((await db.collection("lots").doc("lot-2").get()).exists, false);
 
-  await db.collection("invoices").doc("invoice-1").set({
+  const invoice = await callable("createMonthlyInvoice", adminToken, {
     personId: "resident-1",
-    originalAmountCents: 10000,
-    paidAmountCents: 0,
-    outstandingAmountCents: 10000,
-    status: "pending",
+    period: "2026-09",
   });
+  assert.equal(invoice.status, 200);
+  assert.equal(invoice.body.data.id, "resident-1_2026-09");
   const payment = await callable("registerPayment", adminToken, {
     id: "payment-1",
     personId: "resident-1",
     totalAmountCents: 10000,
     method: "cash",
-    applications: [{invoiceId: "invoice-1", amountCents: 10000}],
+    applications: [{invoiceId: "resident-1_2026-09", amountCents: 10000}],
   });
   assert.equal(payment.status, 200);
-  const invoice = await db.collection("invoices").doc("invoice-1").get();
-  assert.equal(invoice.data().outstandingAmountCents, 0);
-  assert.equal(invoice.data().status, "paid");
+  const paidInvoice = await db.collection("invoices")
+      .doc("resident-1_2026-09").get();
+  assert.equal(paidInvoice.data().outstandingAmountCents, 0);
+  assert.equal(paidInvoice.data().status, "paid");
   assert.equal((await db.collection("payments").doc("payment-1").get()).exists,
       true);
 
@@ -120,7 +120,8 @@ test("administrative callable API commits payments atomically", {
     reason: "Duplicate receipt",
   });
   assert.equal(voided.status, 200);
-  const restoredInvoice = await db.collection("invoices").doc("invoice-1")
+  const restoredInvoice = await db.collection("invoices")
+      .doc("resident-1_2026-09")
       .get();
   assert.equal(restoredInvoice.data().outstandingAmountCents, 10000);
   assert.equal(restoredInvoice.data().status, "pending");

@@ -30,4 +30,4 @@ const callable = (allowedRoles, handler) => onCall(async (request) => {
   return handler(localRequest.data, localRequest);
 });
 
-module.exports = {callable, HttpsError};
+module.exports = {allowsInsecureLocalCalls, callable, HttpsError};

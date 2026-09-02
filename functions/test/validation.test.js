@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const {
-  createPerson, registerPayment, updateLot, updatePerson,
+  createMonthlyInvoice, createPerson, registerPayment, updateLot, updatePerson,
   updateVehicle,
 } = require("../src/shared/schemas");
 
@@ -93,4 +93,13 @@ test("updates require an identifier and at least one editable field", () => {
     vehicleId: "vehicle-1", plate: "P-123ABC",
   }));
   assert.throws(() => updateVehicle({vehicleId: "vehicle-1"}));
+});
+
+test("monthly invoices require a calendar period", () => {
+  assert.doesNotThrow(() => createMonthlyInvoice({
+    personId: "resident-1", period: "2026-09",
+  }));
+  assert.throws(() => createMonthlyInvoice({
+    personId: "resident-1", period: "2026-13",
+  }));
 });

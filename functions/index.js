@@ -32,6 +32,11 @@ const {generateMonthlyInvoices} =
     require("./src/modules/invoices/http/generate-monthly-invoices.scheduled");
 const {applyOverdueFees} =
     require("./src/modules/invoices/http/apply-overdue-fees.scheduled");
+const {createMonthlyInvoice} =
+    require("./src/modules/invoices/http/create-monthly-invoice.callable");
+const {
+  listInvoices, listLots, listPayments, listPeople, listRates, listVehicles,
+} = require("./src/modules/admin/http/list.http");
 
 exports.createPerson = createPerson;
 exports.createLot = createLot;
@@ -47,3 +52,10 @@ exports.updateVehicle = updateVehicle;
 exports.setActiveRate = setActiveRate;
 exports.generateMonthlyInvoices = generateMonthlyInvoices;
 exports.applyOverdueFees = applyOverdueFees;
+exports.createMonthlyInvoice = createMonthlyInvoice;
+exports.listPeople = listPeople;
+exports.listLots = listLots;
+exports.listVehicles = listVehicles;
+exports.listInvoices = listInvoices;
+exports.listPayments = listPayments;
+exports.listRates = listRates;

@@ -1,7 +1,7 @@
 const {
   arrayOf, atLeastOne, boolean, documentId, enumOf, nonNegativeInteger,
   nullable, object,
-  optional, positiveInteger, text,
+  optional, positiveInteger, text, yearMonth,
 } = require("./validators");
 
 const createPerson = (data) => object(data, {
@@ -59,6 +59,11 @@ const setActiveRate = (data) => object(data, {
   vendorLateFeeCents: nonNegativeInteger,
 });
 
+const createMonthlyInvoice = (data) => object(data, {
+  personId: documentId,
+  period: yearMonth,
+});
+
 const assignResidentToLot = (data) => object(data, {
   lotId: documentId,
   residentId: nullable(documentId),
@@ -114,6 +119,7 @@ const voidPayment = (data) => object(data, {
 module.exports = {
   assignResidentToLot,
   createLot,
+  createMonthlyInvoice,
   createPerson,
   deactivatePerson,
   deactivateVehicle,

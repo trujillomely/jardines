@@ -38,6 +38,13 @@ const documentId = (value, field) => {
   return value;
 };
 
+const yearMonth = (value, field) => {
+  if (typeof value !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) {
+    invalid(field, "must use YYYY-MM format");
+  }
+  return value;
+};
+
 const enumOf = (values) => (value, field) => {
   if (!values.includes(value)) invalid(field, "is invalid");
   return value;
@@ -88,4 +95,5 @@ module.exports = {
   optional,
   positiveInteger,
   text,
+  yearMonth,
 };
