@@ -2,9 +2,12 @@ const {Timestamp} = require("firebase-admin/firestore");
 const {HttpsError} = require("../../../shared/callable");
 const firestore = require("../../../shared/firestore.repository");
 const {createRate} = require("../domain/rate.model");
+const {timestampFromIsoDate} = require("../../../shared/firestore");
 const rates = require("../infrastructure/rates.repository");
 
 const execute = async (data, actorUid) => {
+  data = {...data, effectiveFrom: timestampFromIsoDate(
+      data.effectiveFrom, "effectiveFrom")};
   const reference = rates.reference(data.id);
   const now = Timestamp.now();
   await firestore.runTransaction(async (transaction) => {

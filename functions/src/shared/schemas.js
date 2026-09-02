@@ -1,5 +1,6 @@
 const {
-  arrayOf, atLeastOne, boolean, documentId, enumOf, nonNegativeInteger,
+  arrayOf, atLeastOne, boolean, dayOfMonth, documentId, enumOf,
+  nonNegativeInteger,
   nullable, object,
   optional, positiveInteger, text, yearMonth,
 } = require("./validators");
@@ -9,7 +10,8 @@ const createPerson = (data) => object(data, {
   type: enumOf(["resident", "vendor"]),
   firstName: text(100),
   lastName: optional(nullable(text(100))),
-  phone: text(30),
+  phoneNumber: text(30),
+  address: optional(nullable(text(250))),
   serviceType: optional(nullable(text(100))),
 });
 
@@ -26,24 +28,24 @@ const registerVehicle = (data) => object(data, {
   ownerId: documentId,
   ownerType: enumOf(["resident", "vendor"]),
   type: enumOf(["car", "motorcycle"]),
-  plate: text(20),
-  isAdditional: optional(boolean),
-  permit: optional(nullable((value, field) => object(value, {
+  licensePlate: text(20),
+  isExtra: optional(boolean),
+  label: optional(nullable((value, field) => object(value, {
     requiresExtraPayment: optional(boolean),
-    amountCents: optional(nonNegativeInteger),
-    validUntil: optional(nullable(text(40))),
+    amount: optional(nonNegativeInteger),
+    expiresOn: optional(nullable(text(40))),
   }, field))),
 });
 
 const paymentApplication = (value, field) => object(value, {
-  invoiceId: documentId,
-  amountCents: positiveInteger,
+  installmentId: documentId,
+  amount: positiveInteger,
 }, field);
 
 const registerPayment = (data) => object(data, {
   id: documentId,
   personId: documentId,
-  totalAmountCents: positiveInteger,
+  totalAmount: positiveInteger,
   method: enumOf(["cash", "deposit", "transfer"]),
   applications: arrayOf(paymentApplication, {min: 1, max: 100}),
   bank: optional(nullable(text(100))),
@@ -53,10 +55,13 @@ const registerPayment = (data) => object(data, {
 
 const setActiveRate = (data) => object(data, {
   id: optional(documentId),
-  residentMonthlyAmountCents: positiveInteger,
-  residentLateFeeCents: nonNegativeInteger,
-  vendorMonthlyAmountCents: positiveInteger,
-  vendorLateFeeCents: nonNegativeInteger,
+  effectiveFrom: text(40),
+  residentFee: positiveInteger,
+  extraVehicle: positiveInteger,
+  supplierSticker: positiveInteger,
+  residentLateFee: nonNegativeInteger,
+  supplierLateFee: nonNegativeInteger,
+  paymentDueDate: dayOfMonth,
 });
 
 const createMonthlyInvoice = (data) => object(data, {
@@ -75,12 +80,13 @@ const deactivatePerson = (data) => object(data, {
 });
 
 const updatePerson = (data) => atLeastOne([
-  "firstName", "lastName", "phone", "serviceType",
+  "firstName", "lastName", "phoneNumber", "address", "serviceType",
 ])(object(data, {
   personId: documentId,
   firstName: optional(text(100)),
   lastName: optional(nullable(text(100))),
-  phone: optional(text(30)),
+  phoneNumber: optional(text(30)),
+  address: optional(nullable(text(250))),
   serviceType: optional(nullable(text(100))),
 }, "data"), "data");
 
@@ -93,16 +99,16 @@ const updateLot = (data) => atLeastOne(["number", "address", "status"])(
     }, "data"), "data");
 
 const updateVehicle = (data) => atLeastOne([
-  "type", "plate", "isAdditional", "permit",
+  "type", "licensePlate", "isExtra", "label",
 ])(object(data, {
   vehicleId: documentId,
   type: optional(enumOf(["car", "motorcycle"])),
-  plate: optional(text(20)),
-  isAdditional: optional(boolean),
-  permit: optional((value, field) => object(value, {
+  licensePlate: optional(text(20)),
+  isExtra: optional(boolean),
+  label: optional((value, field) => object(value, {
     requiresExtraPayment: boolean,
-    amountCents: nonNegativeInteger,
-    validUntil: nullable(text(40)),
+    amount: nonNegativeInteger,
+    expiresOn: nullable(text(40)),
   }, field)),
 }, "data"), "data");
 
@@ -116,8 +122,16 @@ const voidPayment = (data) => object(data, {
   reason: text(500),
 });
 
+const adjustInvoice = (data) => object(data, {
+  installmentId: documentId,
+  amount: positiveInteger,
+  type: enumOf(["discount", "late_fee_waiver", "write_off"]),
+  reason: text(500),
+});
+
 module.exports = {
   assignResidentToLot,
+  adjustInvoice,
   createLot,
   createMonthlyInvoice,
   createPerson,

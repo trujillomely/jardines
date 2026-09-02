@@ -2,13 +2,13 @@ const createVehicle = (data, validUntil, now, createdBy) => ({
   ownerId: data.ownerId,
   ownerType: data.ownerType,
   type: data.type,
-  plate: data.plate,
-  isAdditional: Boolean(data.isAdditional),
-  permit: {
+  licensePlate: data.licensePlate,
+  isExtra: Boolean(data.isExtra),
+  label: {
     requiresExtraPayment: Boolean(
-        data.permit && data.permit.requiresExtraPayment),
-    amountCents: data.permit && data.permit.amountCents || 0,
-    validUntil,
+        data.label && data.label.requiresExtraPayment),
+    amount: data.label && data.label.amount || 0,
+    expiresOn: validUntil,
   },
   status: "active",
   createdBy,

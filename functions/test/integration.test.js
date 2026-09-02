@@ -36,7 +36,10 @@ test("administrative callable API commits payments atomically", {
   timeout: 30000,
 }, async () => {
   const {getAuth} = require("firebase-admin/auth");
+  const {Timestamp} = require("firebase-admin/firestore");
   const {db} = require("../src/config");
+  const applyOverdueFees = require(
+      "../src/modules/invoices/application/apply-overdue-fees.use-case");
   const auth = getAuth();
   const password = "correct-horse-battery-staple";
   const admin = await auth.createUser({
@@ -48,28 +51,26 @@ test("administrative callable API commits payments atomically", {
 
   const rate = await callable("setActiveRate", adminToken, {
     id: "standard-2026",
-    residentMonthlyAmountCents: 10000,
-    residentLateFeeCents: 500,
-    vendorMonthlyAmountCents: 5000,
-    vendorLateFeeCents: 250,
+    effectiveFrom: "2026-09-01", residentFee: 10000, extraVehicle: 1000,
+    supplierSticker: 5000, residentLateFee: 500, supplierLateFee: 250,
+    paymentDueDate: 10,
   });
   assert.equal(rate.status, 200);
   const duplicateRate = await callable("setActiveRate", adminToken, {
     id: "standard-2026",
-    residentMonthlyAmountCents: 20000,
-    residentLateFeeCents: 1000,
-    vendorMonthlyAmountCents: 8000,
-    vendorLateFeeCents: 400,
+    effectiveFrom: "2026-10-01", residentFee: 20000, extraVehicle: 2000,
+    supplierSticker: 8000, residentLateFee: 1000, supplierLateFee: 400,
+    paymentDueDate: 10,
   });
   assert.equal(duplicateRate.status, 409);
   const savedRate = await db.collection("rates").doc("standard-2026").get();
-  assert.equal(savedRate.data().residentMonthlyAmountCents, 10000);
+  assert.equal(savedRate.data().residentFee, 10000);
 
   const person = await callable("createPerson", adminToken, {
     id: "resident-1",
     type: "resident",
     firstName: "Ada",
-    phone: "5550101",
+    phoneNumber: "5550101",
   });
   assert.equal(person.status, 200);
   assert.equal((await db.collection("people").doc("resident-1").get())
@@ -94,26 +95,69 @@ test("administrative callable API commits payments atomically", {
   assert.equal(duplicateAssignment.status, 400);
   assert.equal((await db.collection("lots").doc("lot-2").get()).exists, false);
 
+  const overdueInvoice = await callable("createMonthlyInvoice", adminToken, {
+    personId: "resident-1",
+    period: "2026-08",
+  });
+  assert.equal(overdueInvoice.status, 200);
+  const fees = await applyOverdueFees.execute(
+      Timestamp.fromDate(new Date("2026-08-15T12:00:00.000Z")));
+  assert.equal(fees.applied, 1);
+  const overdue = await db.collection("invoices").doc("resident-1_2026-08")
+      .get();
+  assert.equal(overdue.data().status, "overdue");
+  assert.equal(overdue.data().outstandingBalance, 10500);
+
+  const vehicle = await callable("registerVehicle", adminToken, {
+    id: "vehicle-1",
+    ownerId: "resident-1",
+    ownerType: "resident",
+    type: "car",
+    licensePlate: "P-123ABC",
+    isExtra: true,
+    label: {
+      requiresExtraPayment: true,
+      amount: 1000,
+      expiresOn: "2026-12-31T00:00:00.000Z",
+    },
+  });
+  assert.equal(vehicle.status, 200);
+  const vehicleInvoice = await db.collection("invoices")
+      .doc("vehicle-1_permit_1798675200000").get();
+  assert.equal(vehicleInvoice.data().description, "extra_vehicle");
+  assert.equal(vehicleInvoice.data().outstandingBalance, 1000);
+
   const invoice = await callable("createMonthlyInvoice", adminToken, {
     personId: "resident-1",
     period: "2026-09",
   });
   assert.equal(invoice.status, 200);
   assert.equal(invoice.body.data.id, "resident-1_2026-09");
+  const adjustment = await callable("adjustInvoice", adminToken, {
+    installmentId: "resident-1_2026-09",
+    amount: 1000,
+    type: "discount",
+    reason: "Approved exception",
+  });
+  assert.equal(adjustment.status, 200);
   const payment = await callable("registerPayment", adminToken, {
     id: "payment-1",
     personId: "resident-1",
-    totalAmountCents: 10000,
+    totalAmount: 9000,
     method: "cash",
-    applications: [{invoiceId: "resident-1_2026-09", amountCents: 10000}],
+    applications: [{installmentId: "resident-1_2026-09", amount: 9000}],
   });
   assert.equal(payment.status, 200);
   const paidInvoice = await db.collection("invoices")
       .doc("resident-1_2026-09").get();
-  assert.equal(paidInvoice.data().outstandingAmountCents, 0);
+  assert.equal(paidInvoice.data().outstandingBalance, 0);
   assert.equal(paidInvoice.data().status, "paid");
   assert.equal((await db.collection("payments").doc("payment-1").get()).exists,
       true);
+  const application = await db.collection("payments").doc("payment-1")
+      .collection("applications").doc("0").get();
+  assert.equal(application.data().previousBalance, 9000);
+  assert.equal(application.data().newBalance, 0);
 
   const voided = await callable("voidPayment", adminToken, {
     paymentId: "payment-1",
@@ -123,7 +167,7 @@ test("administrative callable API commits payments atomically", {
   const restoredInvoice = await db.collection("invoices")
       .doc("resident-1_2026-09")
       .get();
-  assert.equal(restoredInvoice.data().outstandingAmountCents, 10000);
+  assert.equal(restoredInvoice.data().outstandingBalance, 9000);
   assert.equal(restoredInvoice.data().status, "pending");
 
   const unassigned = await callable("assignResidentToLot", adminToken, {
@@ -136,6 +180,9 @@ test("administrative callable API commits payments atomically", {
     reason: "Moved away",
   });
   assert.equal(deactivated.status, 200);
+  const deactivatedVehicle = await db.collection("vehicles").doc("vehicle-1")
+      .get();
+  assert.equal(deactivatedVehicle.data().status, "inactive");
   const inactiveResidentLot = await callable("createLot", adminToken, {
     id: "lot-3",
     number: "3",
@@ -145,11 +192,11 @@ test("administrative callable API commits payments atomically", {
   });
   assert.equal(inactiveResidentLot.status, 400);
   const inactiveOwnerVehicle = await callable("registerVehicle", adminToken, {
-    id: "vehicle-1",
+    id: "vehicle-2",
     ownerId: "resident-1",
     ownerType: "resident",
     type: "car",
-    plate: "P-123ABC",
+    licensePlate: "P-123ABC",
   });
   assert.equal(inactiveOwnerVehicle.status, 400);
 });

@@ -64,6 +64,13 @@ const nonNegativeInteger = (value, field) => {
   return value;
 };
 
+const dayOfMonth = (value, field) => {
+  if (!Number.isSafeInteger(value) || value < 1 || value > 28) {
+    invalid(field, "must be an integer between 1 and 28");
+  }
+  return value;
+};
+
 const boolean = (value, field) => {
   if (typeof value !== "boolean") invalid(field, "must be a boolean");
   return value;
@@ -88,6 +95,7 @@ module.exports = {
   arrayOf,
   boolean,
   documentId,
+  dayOfMonth,
   enumOf,
   nonNegativeInteger,
   nullable,

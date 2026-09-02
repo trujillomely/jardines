@@ -7,25 +7,28 @@ const rates = require("../../rates/infrastructure/rates.repository");
 const invoices = require("../infrastructure/invoices.repository");
 const {createMonthlyInvoice} = require("../domain/invoice.model");
 
-const dueDateForPeriod = (period) => Timestamp.fromDate(
-    new Date(`${period}-10T23:59:59-06:00`));
+const dueDateForPeriod = (period, paymentDueDate) => Timestamp.fromDate(
+    new Date(`${period}-${String(paymentDueDate).padStart(2, "0")}` +
+      "T23:59:59-06:00"));
 
 const validAmount = (value) => Number.isSafeInteger(value) && value > 0;
 const validLateFee = (value) => Number.isSafeInteger(value) && value >= 0;
+const validDueDay = (value) => Number.isSafeInteger(value) &&
+  value >= 1 && value <= 28;
 
 const billingDetails = (person, rate) => {
   if (person.type === "resident") {
     return {
-      concept: "monthly_fee",
-      amountCents: rate.residentMonthlyAmountCents,
-      lateFeeCents: rate.residentLateFeeCents,
+      description: "monthly_installment",
+      amount: rate.residentFee,
+      lateFee: rate.residentLateFee,
     };
   }
   if (person.type === "vendor") {
     return {
-      concept: "vendor_permit",
-      amountCents: rate.vendorMonthlyAmountCents,
-      lateFeeCents: rate.vendorLateFeeCents,
+      description: "sticker",
+      amount: rate.supplierSticker,
+      lateFee: rate.supplierLateFee,
     };
   }
   throw new HttpsError("failed-precondition", "Person type is invalid.");
@@ -69,19 +72,20 @@ const execute = async (data) => {
     }
     const rate = activeRates.docs[0];
     const details = billingDetails(personData, rate.data());
-    if (!validAmount(details.amountCents) ||
-        !validLateFee(details.lateFeeCents)) {
+    if (!validAmount(details.amount) || !validLateFee(details.lateFee) ||
+        !validDueDay(rate.data().paymentDueDate)) {
       throw new HttpsError("failed-precondition",
           "The active rate is invalid for this person type.");
     }
     transaction.create(invoiceReference, createMonthlyInvoice({
       personId: personReference.id,
       period: data.period,
-      concept: details.concept,
-      amountCents: details.amountCents,
-      lateFeeCents: details.lateFeeCents,
+      personType: personData.type,
+      description: details.description,
+      amount: details.amount,
+      lateFee: details.lateFee,
       rateId: rate.id,
-      dueDate: dueDateForPeriod(data.period),
+      dueDate: dueDateForPeriod(data.period, rate.data().paymentDueDate),
       now,
     }));
   });

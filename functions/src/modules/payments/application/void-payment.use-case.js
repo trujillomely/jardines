@@ -14,7 +14,7 @@ const execute = async (data, actorUid) => {
     if (!payment.exists) {
       throw new HttpsError("not-found", "Payment not found.");
     }
-    if (payment.data().status === "voided") return;
+    if (payment.data().status === "canceled") return;
     if (payment.data().status !== "confirmed") {
       throw new HttpsError(
           "failed-precondition", "Payment cannot be voided.");
@@ -27,30 +27,31 @@ const execute = async (data, actorUid) => {
     }
     const invoiceSnapshots = await Promise.all(applications.docs.map(
         async (application) => {
-          const reference = invoices.reference(application.data().invoiceId);
+          const reference = invoices.reference(
+              application.data().installmentId);
           const snapshot = await transaction.get(reference);
           return {application, reference, snapshot};
         }));
     for (const invoice of invoiceSnapshots) {
       if (!invoice.snapshot.exists || !canReversePayment(
-          invoice.snapshot.data(), invoice.application.data().amountCents)) {
+          invoice.snapshot.data(), invoice.application.data().amount)) {
         throw new HttpsError(
             "failed-precondition", "Payment applications are inconsistent.");
       }
     }
     invoiceSnapshots.forEach(({application, reference, snapshot}) => {
       transaction.update(reference, reversePayment(
-          snapshot.data(), application.data().amountCents, now, actorUid));
+          snapshot.data(), application.data().amount, now, actorUid));
     });
     transaction.update(paymentReference, {
-      status: "voided",
-      voidedAt: now,
-      voidedBy: actorUid,
+      status: "canceled",
+      canceledAt: now,
+      canceledBy: actorUid,
       voidReason: data.reason,
       updatedAt: now,
     });
   });
-  return {id: paymentReference.id, status: "voided"};
+  return {id: paymentReference.id, status: "canceled"};
 };
 
 module.exports = {execute};

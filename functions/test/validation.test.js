@@ -2,15 +2,15 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const {
   createMonthlyInvoice, createPerson, registerPayment, updateLot, updatePerson,
-  updateVehicle,
+  updateVehicle, adjustInvoice,
 } = require("../src/shared/schemas");
 
 const validPayment = {
   id: "payment-1",
   personId: "resident-1",
-  totalAmountCents: 100,
+  totalAmount: 100,
   method: "cash",
-  applications: [{invoiceId: "invoice-1", amountCents: 100}],
+  applications: [{installmentId: "invoice-1", amount: 100}],
 };
 
 test("accepts an amount expressed in cents", () => {
@@ -20,11 +20,11 @@ test("accepts an amount expressed in cents", () => {
 test("rejects decimal and non-positive monetary amounts", () => {
   assert.throws(() => registerPayment({
     ...validPayment,
-    totalAmountCents: 12.5,
+    totalAmount: 12.5,
   }));
   assert.throws(() => registerPayment({
     ...validPayment,
-    totalAmountCents: 0,
+    totalAmount: 0,
   }));
 });
 
@@ -33,13 +33,13 @@ test("accepts safe Firestore document IDs only", () => {
     id: "resident-1",
     type: "resident",
     firstName: "Ada",
-    phone: "5550101",
+    phoneNumber: "5550101",
   }));
   assert.throws(() => createPerson({
     id: "resident/1",
     type: "resident",
     firstName: "Ada",
-    phone: "5550101",
+    phoneNumber: "5550101",
   }));
 });
 
@@ -48,7 +48,7 @@ test("rejects blank business strings", () => {
     id: "resident-1",
     type: "resident",
     firstName: "  ",
-    phone: "5550101",
+    phoneNumber: "5550101",
   }));
 });
 
@@ -68,7 +68,7 @@ test("schema rejects unexpected fields and malformed applications", () => {
   assert.throws(() => registerPayment({...validPayment, bypass: true}));
   assert.throws(() => registerPayment({
     ...validPayment,
-    applications: [{invoiceId: "invoice-1", amountCents: 100, extra: true}],
+    applications: [{installmentId: "invoice-1", amount: 100, extra: true}],
   }));
 });
 
@@ -77,20 +77,20 @@ test("a person cannot be assigned to a lot during creation", () => {
     id: "resident-1",
     type: "resident",
     firstName: "Ada",
-    phone: "5550101",
+    phoneNumber: "5550101",
     lotId: "lot-1",
   }));
 });
 
 test("updates require an identifier and at least one editable field", () => {
   assert.doesNotThrow(() => updatePerson({
-    personId: "resident-1", phone: "5550102",
+    personId: "resident-1", phoneNumber: "5550102",
   }));
   assert.throws(() => updatePerson({personId: "resident-1"}));
   assert.doesNotThrow(() => updateLot({lotId: "lot-1", address: "Main"}));
   assert.throws(() => updateLot({lotId: "lot-1"}));
   assert.doesNotThrow(() => updateVehicle({
-    vehicleId: "vehicle-1", plate: "P-123ABC",
+    vehicleId: "vehicle-1", licensePlate: "P-123ABC",
   }));
   assert.throws(() => updateVehicle({vehicleId: "vehicle-1"}));
 });
@@ -101,5 +101,20 @@ test("monthly invoices require a calendar period", () => {
   }));
   assert.throws(() => createMonthlyInvoice({
     personId: "resident-1", period: "2026-13",
+  }));
+});
+
+test("invoice adjustments require a valid type, amount, and reason", () => {
+  assert.doesNotThrow(() => adjustInvoice({
+    installmentId: "resident-1_2026-09", amount: 100,
+    type: "discount", reason: "Approved exception",
+  }));
+  assert.throws(() => adjustInvoice({
+    installmentId: "resident-1_2026-09", amount: 0,
+    type: "discount", reason: "Approved exception",
+  }));
+  assert.throws(() => adjustInvoice({
+    installmentId: "resident-1_2026-09", amount: 100,
+    type: "refund", reason: "Approved exception",
   }));
 });

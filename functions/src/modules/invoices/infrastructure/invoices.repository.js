@@ -3,6 +3,10 @@ const {db} = require("../../../config");
 const reference = (id) => db.collection("invoices").doc(id);
 const referenceForMonthlyInvoice = (personId, period) =>
   reference(`${personId}_${period}`);
+const referenceForVehiclePermit = (vehicleId, validUntil) =>
+  reference(`${vehicleId}_permit_${validUntil.toMillis()}`);
+const adjustments = (invoiceReference) =>
+  invoiceReference.collection("adjustments");
 
 const findOverdue = (now) => db.collection("invoices")
     .where("status", "in", ["pending", "partial"])
@@ -30,9 +34,11 @@ const createMany = async (entries) => {
 };
 
 module.exports = {
+  adjustments,
   createMany,
   findMissing,
   findOverdue,
   reference,
   referenceForMonthlyInvoice,
+  referenceForVehiclePermit,
 };

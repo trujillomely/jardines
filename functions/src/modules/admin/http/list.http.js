@@ -20,7 +20,7 @@ exports.listInvoices = adminGet("invoices", [
   {parameter: "personId", field: "personId"},
   {parameter: "period", field: "period"},
   {parameter: "status", field: "status"},
-  {parameter: "concept", field: "concept"},
+  {parameter: "description", field: "description"},
 ]);
 
 exports.listPayments = adminGet("payments", [

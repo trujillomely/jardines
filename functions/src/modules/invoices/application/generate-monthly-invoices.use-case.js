@@ -15,23 +15,29 @@ const execute = async (now = Timestamp.now()) => {
     people.findActiveVendors(),
   ]);
   if (!rate) throw new Error("No active rate is configured.");
-  const residentAmountCents = rate.data().residentMonthlyAmountCents;
-  const residentLateFeeCents = rate.data().residentLateFeeCents;
-  const vendorAmountCents = rate.data().vendorMonthlyAmountCents;
-  const vendorLateFeeCents = rate.data().vendorLateFeeCents;
-  if (!Number.isSafeInteger(residentAmountCents) || residentAmountCents <= 0) {
-    throw new Error("The active residentMonthlyAmountCents is invalid.");
+  const residentAmount = rate.data().residentFee;
+  const residentLateFee = rate.data().residentLateFee;
+  const vendorAmount = rate.data().supplierSticker;
+  const vendorLateFee = rate.data().supplierLateFee;
+  const paymentDueDate = rate.data().paymentDueDate;
+  if (!Number.isSafeInteger(residentAmount) || residentAmount <= 0) {
+    throw new Error("The active residentFee is invalid.");
   }
-  if (!Number.isSafeInteger(residentLateFeeCents) || residentLateFeeCents < 0) {
-    throw new Error("The active residentLateFeeCents is invalid.");
+  if (!Number.isSafeInteger(residentLateFee) || residentLateFee < 0) {
+    throw new Error("The active residentLateFee is invalid.");
   }
-  if (!Number.isSafeInteger(vendorAmountCents) || vendorAmountCents <= 0) {
-    throw new Error("The active vendorMonthlyAmountCents is invalid.");
+  if (!Number.isSafeInteger(vendorAmount) || vendorAmount <= 0) {
+    throw new Error("The active supplierSticker is invalid.");
   }
-  if (!Number.isSafeInteger(vendorLateFeeCents) || vendorLateFeeCents < 0) {
-    throw new Error("The active vendorLateFeeCents is invalid.");
+  if (!Number.isSafeInteger(vendorLateFee) || vendorLateFee < 0) {
+    throw new Error("The active supplierLateFee is invalid.");
   }
-  const dueDate = Timestamp.fromDate(new Date(`${period}-10T23:59:59-06:00`));
+  if (!Number.isSafeInteger(paymentDueDate) || paymentDueDate < 1 ||
+      paymentDueDate > 28) {
+    throw new Error("The active paymentDueDate is invalid.");
+  }
+  const dueDate = Timestamp.fromDate(new Date(
+      `${period}-${String(paymentDueDate).padStart(2, "0")}T23:59:59-06:00`));
   const invoicesById = new Map();
   activeLots.docs.forEach((lot) => {
     const personId = lot.data().currentResidentId;
@@ -40,9 +46,8 @@ const execute = async (now = Timestamp.now()) => {
     invoicesById.set(reference.id, {
       personId,
       reference,
-      concept: "monthly_fee",
-      amountCents: residentAmountCents,
-      lateFeeCents: residentLateFeeCents,
+      personType: "resident", description: "monthly_installment",
+      amount: residentAmount, lateFee: residentLateFee,
     });
   });
   activeVendors.docs.forEach((vendor) => {
@@ -51,9 +56,8 @@ const execute = async (now = Timestamp.now()) => {
     invoicesById.set(reference.id, {
       personId,
       reference,
-      concept: "vendor_permit",
-      amountCents: vendorAmountCents,
-      lateFeeCents: vendorLateFeeCents,
+      personType: "vendor", description: "sticker",
+      amount: vendorAmount, lateFee: vendorLateFee,
     });
   });
   const candidates = [...invoicesById.values()];
@@ -64,9 +68,10 @@ const execute = async (now = Timestamp.now()) => {
     data: createMonthlyInvoice({
       personId: invoice.personId,
       period,
-      concept: invoice.concept,
-      amountCents: invoice.amountCents,
-      lateFeeCents: invoice.lateFeeCents,
+      personType: invoice.personType,
+      description: invoice.description,
+      amount: invoice.amount,
+      lateFee: invoice.lateFee,
       rateId: rate.id,
       dueDate,
       now,

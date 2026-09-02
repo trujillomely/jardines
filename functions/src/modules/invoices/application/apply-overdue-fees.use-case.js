@@ -12,13 +12,13 @@ const execute = async (now = Timestamp.now()) => {
     rates.findActive(),
     invoices.findOverdue(now),
   ]);
-  const residentLateFeeCents = rate ? rate.data().residentLateFeeCents : null;
-  const vendorLateFeeCents = rate ? rate.data().vendorLateFeeCents : null;
-  if (residentLateFeeCents !== null && !validLateFee(residentLateFeeCents)) {
-    throw new Error("The active residentLateFeeCents is invalid.");
+  const residentLateFee = rate ? rate.data().residentLateFee : null;
+  const vendorLateFee = rate ? rate.data().supplierLateFee : null;
+  if (residentLateFee !== null && !validLateFee(residentLateFee)) {
+    throw new Error("The active residentLateFee is invalid.");
   }
-  if (vendorLateFeeCents !== null && !validLateFee(vendorLateFeeCents)) {
-    throw new Error("The active vendorLateFeeCents is invalid.");
+  if (vendorLateFee !== null && !validLateFee(vendorLateFee)) {
+    throw new Error("The active supplierLateFee is invalid.");
   }
   let applied = 0;
   const applyFee = async (reference) => firestore.runTransaction(
@@ -28,14 +28,14 @@ const execute = async (now = Timestamp.now()) => {
           return false;
         }
         const current = invoice.data();
-        const fallbackLateFeeCents = current.concept === "vendor_permit" ?
-          vendorLateFeeCents : residentLateFeeCents;
-        const feeCents = current.lateFeeCents === undefined ?
-          fallbackLateFeeCents : current.lateFeeCents;
-        if (!validLateFee(feeCents)) {
+        const fallbackLateFee = current.description === "sticker" ?
+          vendorLateFee : residentLateFee;
+        const fee = current.lateFee === undefined ?
+          fallbackLateFee : current.lateFee;
+        if (!validLateFee(fee)) {
           throw new Error("Invoice has no valid late-fee snapshot.");
         }
-        transaction.update(reference, applyLateFee(current, feeCents, now));
+        transaction.update(reference, applyLateFee(current, fee, now));
         return true;
       });
   for (let index = 0; index < overdueInvoices.docs.length; index += 20) {

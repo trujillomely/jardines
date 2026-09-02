@@ -17,9 +17,9 @@ const execute = async (data, actorUid) => {
     throw new HttpsError(
         "invalid-argument", "bank and reference are required.");
   }
-  if (totalAppliedAmount(data.applications) !== data.totalAmountCents) {
+  if (totalAppliedAmount(data.applications) !== data.totalAmount) {
     throw new HttpsError(
-        "invalid-argument", "Applied amount must equal totalAmountCents.");
+        "invalid-argument", "Applied amount must equal totalAmount.");
   }
   if (!hasUniqueInvoiceApplications(data.applications)) {
     throw new HttpsError(
@@ -41,7 +41,7 @@ const execute = async (data, actorUid) => {
     }
     const invoiceSnapshots = await Promise.all(data.applications.map(
         async (application) => {
-          const reference = invoices.reference(application.invoiceId);
+          const reference = invoices.reference(application.installmentId);
           const snapshot = await transaction.get(reference);
           return {application, reference, snapshot};
         }));
@@ -51,7 +51,7 @@ const execute = async (data, actorUid) => {
       }
       if (invoice.snapshot.data().personId !== data.personId ||
           !canApplyPayment(
-              invoice.snapshot.data(), invoice.application.amountCents)) {
+              invoice.snapshot.data(), invoice.application.amount)) {
         throw new HttpsError(
             "failed-precondition", "Invalid invoice application.");
       }
@@ -59,11 +59,12 @@ const execute = async (data, actorUid) => {
     transaction.create(paymentReference, createPayment(data, now, actorUid));
     invoiceSnapshots.forEach(({application, reference, snapshot}, index) => {
       transaction.update(reference, applyPayment(
-          snapshot.data(), application.amountCents, now, actorUid));
+          snapshot.data(), application.amount, now, actorUid));
       const applicationReference = payments.applications(paymentReference)
           .doc(String(index));
       transaction.create(applicationReference, createApplication(
-          application.invoiceId, application.amountCents, now));
+          application.installmentId, application.amount,
+          snapshot.data().outstandingBalance, now));
     });
   });
   return {id: paymentReference.id};
