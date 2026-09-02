@@ -3,7 +3,6 @@ const createPerson = (data, now, createdBy) => ({
   firstName: data.firstName,
   lastName: data.lastName || null,
   phone: data.phone,
-  authUid: data.authUid || null,
   lotId: null,
   serviceType: data.serviceType || null,
   status: "active",

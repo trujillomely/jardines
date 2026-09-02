@@ -34,9 +34,10 @@ const execute = async (data, actorUid) => {
           "already-exists", "A payment with this id already exists.");
     }
     const person = await transaction.get(people.reference(data.personId));
-    if (!person.exists || person.data().type !== "resident") {
+    if (!person.exists || !["resident", "vendor"].includes(
+        person.data().type) || person.data().status !== "active") {
       throw new HttpsError(
-          "failed-precondition", "personId must refer to a resident.");
+          "failed-precondition", "personId must refer to an active person.");
     }
     const invoiceSnapshots = await Promise.all(data.applications.map(
         async (application) => {

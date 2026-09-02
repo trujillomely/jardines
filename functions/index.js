@@ -21,8 +21,11 @@ const {voidPayment} =
     require("./src/modules/payments/http/void-payment.callable");
 const {deactivatePerson} =
     require("./src/modules/people/http/deactivate-person.callable");
-const {setUserRole} =
-    require("./src/modules/admin/http/set-user-role.callable");
+const {updatePerson} =
+    require("./src/modules/people/http/update-person.callable");
+const {updateLot} = require("./src/modules/lots/http/update-lot.callable");
+const {updateVehicle} =
+    require("./src/modules/vehicles/http/update-vehicle.callable");
 const {setActiveRate} =
     require("./src/modules/rates/http/set-active-rate.callable");
 const {generateMonthlyInvoices} =
@@ -38,7 +41,9 @@ exports.deactivateVehicle = deactivateVehicle;
 exports.registerPayment = registerPayment;
 exports.voidPayment = voidPayment;
 exports.deactivatePerson = deactivatePerson;
-exports.setUserRole = setUserRole;
+exports.updatePerson = updatePerson;
+exports.updateLot = updateLot;
+exports.updateVehicle = updateVehicle;
 exports.setActiveRate = setActiveRate;
 exports.generateMonthlyInvoices = generateMonthlyInvoices;
 exports.applyOverdueFees = applyOverdueFees;

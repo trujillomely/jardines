@@ -3,8 +3,7 @@ const {registerPayment: parseRegisterPayment} =
     require("../../../shared/schemas");
 const registerPayment = require("../application/register-payment.use-case");
 
-exports.registerPayment = callable(
-    ["admin", "treasurer"], async (data, request) => {
-      data = parseRegisterPayment(data);
-      return registerPayment.execute(data, request.auth.uid);
-    });
+exports.registerPayment = callable(["admin"], async (data, request) => {
+  data = parseRegisterPayment(data);
+  return registerPayment.execute(data, request.auth.uid);
+});

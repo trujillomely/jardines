@@ -12,9 +12,13 @@ const execute = async (now = Timestamp.now()) => {
     rates.findActive(),
     invoices.findOverdue(now),
   ]);
-  const fallbackLateFeeCents = rate ? rate.data().residentLateFeeCents : null;
-  if (fallbackLateFeeCents !== null && !validLateFee(fallbackLateFeeCents)) {
+  const residentLateFeeCents = rate ? rate.data().residentLateFeeCents : null;
+  const vendorLateFeeCents = rate ? rate.data().vendorLateFeeCents : null;
+  if (residentLateFeeCents !== null && !validLateFee(residentLateFeeCents)) {
     throw new Error("The active residentLateFeeCents is invalid.");
+  }
+  if (vendorLateFeeCents !== null && !validLateFee(vendorLateFeeCents)) {
+    throw new Error("The active vendorLateFeeCents is invalid.");
   }
   let applied = 0;
   const applyFee = async (reference) => firestore.runTransaction(
@@ -24,6 +28,8 @@ const execute = async (now = Timestamp.now()) => {
           return false;
         }
         const current = invoice.data();
+        const fallbackLateFeeCents = current.concept === "vendor_permit" ?
+          vendorLateFeeCents : residentLateFeeCents;
         const feeCents = current.lateFeeCents === undefined ?
           fallbackLateFeeCents : current.lateFeeCents;
         if (!validLateFee(feeCents)) {

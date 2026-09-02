@@ -4,7 +4,6 @@ const test = require("node:test");
 const hasEmulators = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
 const functionsHost = process.env.FUNCTIONS_EMULATOR_HOST || "127.0.0.1:5002";
 const authHost = process.env.FIREBASE_AUTH_EMULATOR_HOST || "127.0.0.1:9100";
-const firestoreHost = process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8081";
 
 const callable = async (name, token, data) => {
   const url = `http://${functionsHost}/jardines-de-minerva/us-central1/${name}`;
@@ -32,7 +31,7 @@ const signIn = async (email, password) => {
   return body.idToken;
 };
 
-test("callable API enforces roles and commits payments atomically", {
+test("administrative callable API commits payments atomically", {
   skip: !hasEmulators,
   timeout: 30000,
 }, async () => {
@@ -43,39 +42,24 @@ test("callable API enforces roles and commits payments atomically", {
   const admin = await auth.createUser({
     uid: "admin-user", email: "admin@example.test", password,
   });
-  const resident = await auth.createUser({
-    uid: "resident-user", email: "resident@example.test", password,
-  });
-  const outsider = await auth.createUser({
-    uid: "outsider-user", email: "outsider@example.test", password,
-  });
   await auth.setCustomUserClaims(admin.uid, {role: "admin"});
 
   const adminToken = await signIn(admin.email, password);
-  const setRole = await callable("setUserRole", adminToken, {
-    uid: resident.uid,
-    role: "resident",
-  });
-  assert.equal(setRole.status, 200);
-  const residentToken = await signIn(resident.email, password);
-  const outsiderToken = await signIn(outsider.email, password);
-
-  const forbiddenRate = await callable("setActiveRate", residentToken, {
-    residentMonthlyAmountCents: 10000,
-    residentLateFeeCents: 500,
-  });
-  assert.equal(forbiddenRate.status, 403);
 
   const rate = await callable("setActiveRate", adminToken, {
     id: "standard-2026",
     residentMonthlyAmountCents: 10000,
     residentLateFeeCents: 500,
+    vendorMonthlyAmountCents: 5000,
+    vendorLateFeeCents: 250,
   });
   assert.equal(rate.status, 200);
   const duplicateRate = await callable("setActiveRate", adminToken, {
     id: "standard-2026",
     residentMonthlyAmountCents: 20000,
     residentLateFeeCents: 1000,
+    vendorMonthlyAmountCents: 8000,
+    vendorLateFeeCents: 400,
   });
   assert.equal(duplicateRate.status, 409);
   const savedRate = await db.collection("rates").doc("standard-2026").get();
@@ -86,21 +70,10 @@ test("callable API enforces roles and commits payments atomically", {
     type: "resident",
     firstName: "Ada",
     phone: "5550101",
-    authUid: resident.uid,
   });
   assert.equal(person.status, 200);
   assert.equal((await db.collection("people").doc("resident-1").get())
       .data().createdBy, admin.uid);
-  const duplicateAuthUid = await callable("createPerson", adminToken, {
-    id: "resident-2",
-    type: "resident",
-    firstName: "Grace",
-    phone: "5550102",
-    authUid: resident.uid,
-  });
-  assert.equal(duplicateAuthUid.status, 409);
-  assert.equal((await db.collection("people").doc("resident-2").get()).exists,
-      false);
   const lot = await callable("createLot", adminToken, {
     id: "lot-1",
     number: "1",
@@ -178,15 +151,4 @@ test("callable API enforces roles and commits payments atomically", {
     plate: "P-123ABC",
   });
   assert.equal(inactiveOwnerVehicle.status, 400);
-
-  const documentUrl = `http://${firestoreHost}/v1/projects/` +
-      "jardines-de-minerva/databases/(default)/documents/invoices/invoice-1";
-  const ownerRead = await fetch(documentUrl, {
-    headers: {Authorization: `Bearer ${residentToken}`},
-  });
-  const outsiderRead = await fetch(documentUrl, {
-    headers: {Authorization: `Bearer ${outsiderToken}`},
-  });
-  assert.equal(ownerRead.status, 200);
-  assert.equal(outsiderRead.status, 403);
 });

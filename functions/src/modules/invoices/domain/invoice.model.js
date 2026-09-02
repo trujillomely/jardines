@@ -1,11 +1,12 @@
 const isMoney = (value) => Number.isSafeInteger(value) && value >= 0;
 
 const createMonthlyInvoice = ({
-  personId, period, amountCents, lateFeeCents, rateId, dueDate, now,
+  personId, period, concept = "monthly_fee", amountCents, lateFeeCents,
+  rateId, dueDate, now,
 }) => ({
   personId,
   period,
-  concept: "monthly_fee",
+  concept,
   rateId,
   originalAmountCents: amountCents,
   paidAmountCents: 0,

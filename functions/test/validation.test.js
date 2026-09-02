@@ -1,7 +1,8 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const {
-  createPerson, registerPayment, setUserRole,
+  createPerson, registerPayment, updateLot, updatePerson,
+  updateVehicle,
 } = require("../src/shared/schemas");
 
 const validPayment = {
@@ -81,14 +82,15 @@ test("a person cannot be assigned to a lot during creation", () => {
   }));
 });
 
-test("role changes reject unknown fields", () => {
-  assert.doesNotThrow(() => setUserRole({
-    uid: "user-1",
-    role: "treasurer",
+test("updates require an identifier and at least one editable field", () => {
+  assert.doesNotThrow(() => updatePerson({
+    personId: "resident-1", phone: "5550102",
   }));
-  assert.throws(() => setUserRole({
-    uid: "user-1",
-    role: "treasurer",
-    elevated: true,
+  assert.throws(() => updatePerson({personId: "resident-1"}));
+  assert.doesNotThrow(() => updateLot({lotId: "lot-1", address: "Main"}));
+  assert.throws(() => updateLot({lotId: "lot-1"}));
+  assert.doesNotThrow(() => updateVehicle({
+    vehicleId: "vehicle-1", plate: "P-123ABC",
   }));
+  assert.throws(() => updateVehicle({vehicleId: "vehicle-1"}));
 });

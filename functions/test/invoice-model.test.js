@@ -23,6 +23,21 @@ test("invoice model creates an immutable rate snapshot", () => {
   assert.equal(invoice.outstandingAmountCents, 10000);
 });
 
+test("invoice model preserves the vendor permit concept", () => {
+  const invoice = createMonthlyInvoice({
+    personId: "vendor-1",
+    period: "2026-08",
+    concept: "vendor_permit",
+    amountCents: 5000,
+    lateFeeCents: 250,
+    rateId: "rate-2026",
+    dueDate,
+    now,
+  });
+  assert.equal(invoice.concept, "vendor_permit");
+  assert.equal(invoice.lateFeeCents, 250);
+});
+
 test("invoice model applies and reverses a payment " +
     "without losing balances", () => {
   const invoice = {

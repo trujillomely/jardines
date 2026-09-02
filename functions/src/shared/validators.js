@@ -69,7 +69,15 @@ const arrayOf = (validator, {min = 0, max = 100} = {}) => (value, field) => {
   return value.map((item, index) => validator(item, `${field}[${index}]`));
 };
 
+const atLeastOne = (keys) => (value, field) => {
+  if (!keys.some((key) => value[key] !== undefined)) {
+    invalid(field, "must include at least one editable field");
+  }
+  return value;
+};
+
 module.exports = {
+  atLeastOne,
   arrayOf,
   boolean,
   documentId,

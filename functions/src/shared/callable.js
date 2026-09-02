@@ -10,13 +10,24 @@ const requireRole = (request, allowedRoles) => {
   }
 };
 
+const allowsInsecureLocalCalls = () =>
+  process.env.FUNCTIONS_EMULATOR === "true" &&
+  process.env.ALLOW_INSECURE_LOCAL_CALLS === "true";
+
 const callable = (allowedRoles, handler) => onCall(async (request) => {
-  requireRole(request, allowedRoles);
-  if (!request.data || Array.isArray(request.data) ||
-      typeof request.data !== "object") {
+  const localRequest = allowsInsecureLocalCalls() && !request.auth ? {
+    ...request,
+    auth: {
+      uid: "local-test-admin",
+      token: {role: "admin"},
+    },
+  } : request;
+  requireRole(localRequest, allowedRoles);
+  if (!localRequest.data || Array.isArray(localRequest.data) ||
+      typeof localRequest.data !== "object") {
     throw new HttpsError("invalid-argument", "data must be an object.");
   }
-  return handler(request.data, request);
+  return handler(localRequest.data, localRequest);
 });
 
 module.exports = {callable, HttpsError};

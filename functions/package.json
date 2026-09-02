@@ -5,13 +5,11 @@
     "lint": "eslint .",
     "test": "node --test test/**/*.test.js",
     "test:emulator": "npx -y firebase-tools@latest emulators:exec --project jardines-de-minerva --only auth,firestore,functions \"npm test\"",
-    "serve": "firebase emulators:start --only functions",
+    "serve": "firebase emulators:start --only auth,firestore,functions",
     "shell": "firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log"
-    ,"bootstrap:admin": "node scripts/create-initial-admin.js"
-    ,"migrate:legacy": "node scripts/migrate-legacy-data.js"
   },
   "engines": {
     "node": "22"

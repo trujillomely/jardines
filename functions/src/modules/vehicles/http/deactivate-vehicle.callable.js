@@ -4,8 +4,7 @@ const {deactivateVehicle: parseDeactivateVehicle} =
 const deactivateVehicle =
     require("../application/deactivate-vehicle.use-case");
 
-exports.deactivateVehicle = callable(
-    ["admin", "treasurer"], async (data, request) => {
-      data = parseDeactivateVehicle(data);
-      return deactivateVehicle.execute(data, request.auth.uid);
-    });
+exports.deactivateVehicle = callable(["admin"], async (data, request) => {
+  data = parseDeactivateVehicle(data);
+  return deactivateVehicle.execute(data, request.auth.uid);
+});
